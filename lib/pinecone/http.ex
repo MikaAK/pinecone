@@ -50,7 +50,7 @@ defmodule Pinecone.Http do
     {:error, body}
   end
 
-  defp url(:indices, endpoint, env) do
+  defp url(type, endpoint, env) when type in [:indices, :collections] do
     env =
       if env do
         env

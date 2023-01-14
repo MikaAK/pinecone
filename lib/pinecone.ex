@@ -322,6 +322,71 @@ defmodule Pinecone do
     post({:vectors, "#{name}-#{project_name}"}, "query", body, opts[:config])
   end
 
+  ## Collection Operations
+
+  @doc """
+  Creates a Pinecone collection with the given name from the given
+  Pinecone index.
+
+  ## Options
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def create_collection(collection_name, index_name, opts \\ [])
+      when is_binary(collection_name) and is_binary(index_name) do
+    opts = Keyword.validate!(opts, [:config])
+
+    body = %{
+      "name" => collection_name,
+      "source" => index_name
+    }
+
+    post(:collections, "collections", body, opts[:config])
+  end
+
+  @doc """
+  Describes the given Pinecone collection.
+
+  ## Options
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def describe_collection(collection_name, opts \\ []) when is_binary(collection_name) do
+    opts = Keyword.validate!(opts, [:config])
+
+    get(:collections, "collections/#{collection_name}", opts[:config])
+  end
+
+  @doc """
+  Lists all Pinecone collections.
+
+  ## Options
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def list_collections(opts \\ []) do
+    opts = Keyword.validate!(opts, [:config])
+
+    get(:collections, "collections", opts[:config])
+  end
+
+  @doc """
+  Deletes the given Pinecone collection.
+
+  ## Options
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def delete_collection(collection_name, opts \\ []) when is_binary(collection_name) do
+    opts = Keyword.validate!(opts, [:config])
+
+    get(:collections, "collections/#{collection_name}", opts[:config])
+  end
+
   defp to_pod_type({type, size}), do: "#{Atom.to_string(type)}.#{Atom.to_string(size)}"
 
   defp validate!(_key, value, :non_negative_integer) when is_integer(value) and value > 0, do: :ok
