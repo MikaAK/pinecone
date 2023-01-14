@@ -241,7 +241,7 @@ defmodule Pinecone do
   ## Options
 
     * `:namespace` - index namespace to delete vectors from. Defaults to `nil`
-      which will upsert vectors in the default namespace
+      which will delete vectors from the default namespace
 
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
@@ -257,12 +257,12 @@ defmodule Pinecone do
   end
 
   @doc """
-  Deletes all vectors from the given index.
+  Deletes all vectors from the given Pinecone index.
 
   ## Options
 
     * `:namespace` - index namespace to delete vectors from. Defaults to `nil`
-      which will upsert vectors in the default namespace
+      which will delete all vectors from the default namespace
 
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
@@ -276,18 +276,60 @@ defmodule Pinecone do
     delete({:vectors, "#{name}-#{project_name}"}, "vectors/delete", opts[:config], params: params)
   end
 
-  defp to_pod_type({type, size}), do: "#{Atom.to_string(type)}.#{Atom.to_string(size)}"
+  @doc """
+  Queries the given Pinecone index with the given vector.
 
-  defp validate!(_key, value, :binary) when is_binary(value), do: :ok
+  ## Options
 
-  defp validate!(key, value, :binary) do
-    raise ArgumentError, "expected #{key} to be a binary, got #{inspect(value)}"
+    * `:top_k` - return the top-k vectors from the index. Defaults to
+      `5`
+
+    * `:include_values` - return vector values with results. Defaults to
+      `false`
+
+    * `:include_metadata` - return vector metadata with results. Defaults
+      to `false`
+
+    * `:namespace` - index namespace to query. Defaults to `nil`
+      which will query vectors in the default namespace
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def query(%Index{name: name, project_name: project_name}, vector, opts \\ []) do
+    opts =
+      Keyword.validate!(opts, [
+        :config,
+        :namespace,
+        top_k: 5,
+        include_values: false,
+        include_metadata: false
+      ])
+
+    validate!("top_k", opts[:top_k], :non_negative_integer)
+    validate!("include_values", opts[:include_values], :boolean)
+    validate!("include_metadata", opts[:include_metadata], :boolean)
+
+    body = %{
+      "vector" => vector,
+      "topK" => opts[:top_k],
+      "includeValues" => opts[:include_values],
+      "includeMetadata" => opts[:include_metadata]
+    }
+
+    body = if opts[:namespace], do: Map.put(body, "namespace", opts[:namespace]), else: body
+
+    post({:vectors, "#{name}-#{project_name}"}, "query", body, opts[:config])
   end
 
-  defp validate!(_key, value, :non_negative_integer) when is_integer(value) and value > 0, do: :ok
+  defp to_pod_type({type, size}), do: "#{Atom.to_string(type)}.#{Atom.to_string(size)}"
 
-  defp validate!(key, value, :non_negative_integer) do
-    raise ArgumentError, "expected #{key} to be a non-negative integer, got #{inspect(value)}"
+  defp validate!(_key, value, :non_negative_integer) when is_integer(value) and value > 0, do: :ok
+  defp validate!(_key, value, :boolean) when is_boolean(value), do: :ok
+  defp validate!(_key, value, :binary) when is_binary(value), do: :ok
+
+  defp validate!(key, value, type) do
+    raise ArgumentError, "expected #{key} to be type #{inspect(type)}, got #{inspect(value)}"
   end
 
   defp validate!(key, value, :one_of, values) do
