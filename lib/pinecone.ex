@@ -4,6 +4,8 @@ defmodule Pinecone do
   """
   import Pinecone.Http
 
+  alias Pinecone.Index
+
   @type success_t(inner) :: {:ok, inner}
   @type error_t :: {:error, String.t()}
 
@@ -20,7 +22,7 @@ defmodule Pinecone do
   @spec whoami(opts :: keyword()) :: success_t(map()) | error_t()
   def whoami(opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
-    get("actions/whoami", opts[:config])
+    get(:indices, "actions/whoami", opts[:config])
   end
 
   ## Index Operations
@@ -36,7 +38,7 @@ defmodule Pinecone do
   @spec list_indices(opts :: keyword()) :: success_t(list()) | error_t()
   def list_indices(opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
-    get("databases", opts[:config])
+    get(:indices, "databases", opts[:config])
   end
 
   @doc """
@@ -51,7 +53,7 @@ defmodule Pinecone do
           success_t(map()) | error_t()
   def describe_index(index_name, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
-    get("databases/#{index_name}", opts[:config])
+    get(:indices, "databases/#{index_name}", opts[:config])
   end
 
   @valid_metric_types [:euclidean, :cosine, :dotproduct]
@@ -121,7 +123,7 @@ defmodule Pinecone do
       "pod_type" => to_pod_type(opts[:pod_type])
     }
 
-    post("databases", body, opts[:config])
+    post(:indices, "databases", body, opts[:config])
   end
 
   @doc """
@@ -137,7 +139,7 @@ defmodule Pinecone do
   def delete_index(index_name, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    delete("databases/#{index_name}", opts[:config])
+    delete(:indices, "databases/#{index_name}", opts[:config])
   end
 
   @doc """
@@ -168,7 +170,110 @@ defmodule Pinecone do
       "pod_type" => to_pod_type(opts[:pod_type])
     }
 
-    patch("databases/#{index_name}", body, opts[:config])
+    patch(:indices, "databases/#{index_name}", body, opts[:config])
+  end
+
+  ## Vector operations
+
+  @doc """
+  Describes vector statistics of the given index.
+
+  ## Options
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def describe_index_stats(%Index{name: name, project_name: project_name}, opts \\ []) do
+    opts = Keyword.validate!(opts, [:config])
+
+    get({:vectors, "#{name}-#{project_name}"}, "describe_index_stats", opts[:config])
+  end
+
+  @doc """
+  Upserts a vectors into the given Pinecone index.
+
+  For upserts with greater than 100 vectors, you should batch the upsert
+  into multipe asynchronous requests:
+
+      vectors
+      |> Stream.chunk_every(100)
+      |> Enum.map(&Task.async(fn -> Pinecone.upsert(index, &1) end))
+      |> Enum.map(&Task.await(&1))
+
+  ## Options
+
+    * `:namespace` - index namespace to upsert vectors to. Defaults to `nil`
+      which will upsert vectors in the default namespace
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def upsert_vectors(%Index{name: name, project_name: project_name}, vectors, opts \\ []) do
+    opts = Keyword.validate!(opts, [:config, :namespace])
+
+    validate!("namespace", opts[:namespace], :binary)
+
+    body = %{"vectors" => List.wrap(vectors)}
+    body = if opts[:namespace], do: Map.put(body, "namespace", opts[:namespace]), else: body
+
+    post({:vectors, "#{name}-#{project_name}"}, "vectors/upsert", body, opts[:config])
+  end
+
+  @doc """
+  Fetches vectors with the given IDs from the given Pinecone index.
+
+  ## Options
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def fetch_vectors(%Index{name: name, project_name: project_name}, ids, opts \\ []) do
+    opts = Keyword.validate!(opts, [:config])
+
+    ids = Enum.map(ids, &{"ids", &1})
+
+    get({:vectors, "#{name}-#{project_name}"}, "vectors/fetch", opts[:config], params: ids)
+  end
+
+  @doc """
+  Deletes vectors with the given IDs from the given Pinecone index.
+
+  ## Options
+
+    * `:namespace` - index namespace to delete vectors from. Defaults to `nil`
+      which will upsert vectors in the default namespace
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def delete_vectors(%Index{name: name, project_name: project_name}, ids, opts \\ [])
+      when is_list(ids) do
+    opts = Keyword.validate!(opts, [:config, :namespace])
+
+    params = Enum.map(ids, &{"ids", &1})
+    params = if opts[:namespace], do: [{"namespace", opts[:namespace]} | params], else: params
+
+    delete({:vectors, "#{name}-#{project_name}"}, "vectors/delete", opts[:config], params: params)
+  end
+
+  @doc """
+  Deletes all vectors from the given index.
+
+  ## Options
+
+    * `:namespace` - index namespace to delete vectors from. Defaults to `nil`
+      which will upsert vectors in the default namespace
+
+    * `:config` - client configuration used to override application
+    level configuration. Defaults to `nil`
+  """
+  def delete_all_vectors(%Index{name: name, project_name: project_name}, opts \\ []) do
+    opts = Keyword.validate!(opts, [:config, :namespace])
+
+    params = [{"delete_all", true}]
+    params = if opts[:namespace], do: [{"namespace", opts[:namespace]} | params], else: params
+
+    delete({:vectors, "#{name}-#{project_name}"}, "vectors/delete", opts[:config], params: params)
   end
 
   defp to_pod_type({type, size}), do: "#{Atom.to_string(type)}.#{Atom.to_string(size)}"

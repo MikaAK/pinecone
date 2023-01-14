@@ -1,30 +1,36 @@
 defmodule Pinecone.Http do
   @moduledoc false
 
-  def get(endpoint, config \\ []) do
-    endpoint
-    |> url(config[:environment])
-    |> Req.get(headers: headers(config[:api_key]))
+  def get(type, endpoint, config \\ [], opts \\ []) do
+    params = opts[:params] || []
+
+    type
+    |> url(endpoint, config[:environment])
+    |> Req.get(params: params, headers: headers(config[:api_key]))
     |> parse_response()
   end
 
-  def post(endpoint, body, config \\ []) do
-    endpoint
-    |> url(config[:environment])
+  def post(type, endpoint, body, config \\ []) do
+    type
+    |> url(endpoint, config[:environment])
     |> Req.post(body: Jason.encode!(body), headers: headers(config[:api_key]))
     |> parse_response()
   end
 
-  def delete(endpoint, config \\ []) do
-    endpoint
-    |> url(config[:environment])
-    |> then(&Req.request(url: &1, method: :delete, headers: headers(config[:api_key])))
+  def delete(type, endpoint, config \\ [], opts \\ []) do
+    params = opts[:params] || []
+
+    type
+    |> url(endpoint, config[:environment])
+    |> then(
+      &Req.request(url: &1, params: params, method: :delete, headers: headers(config[:api_key]))
+    )
     |> parse_response()
   end
 
-  def patch(endpoint, body, config \\ []) do
-    endpoint
-    |> url(config[:environment])
+  def patch(type, endpoint, body, config \\ []) do
+    type
+    |> url(endpoint, config[:environment])
     |> then(
       &Req.request(
         url: &1,
@@ -44,7 +50,7 @@ defmodule Pinecone.Http do
     {:error, body}
   end
 
-  defp url(endpoint, env) do
+  defp url(:indices, endpoint, env) do
     env =
       if env do
         env
@@ -53,6 +59,17 @@ defmodule Pinecone.Http do
       end
 
     "https://controller.#{env}.pinecone.io/#{endpoint}"
+  end
+
+  defp url({:vectors, slug}, endpoint, env) do
+    env =
+      if env do
+        env
+      else
+        Pinecone.Config.environment()
+      end
+
+    "https://#{slug}.svc.#{env}.pinecone.io/#{endpoint}"
   end
 
   defp headers(api_key) do
