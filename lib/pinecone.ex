@@ -19,7 +19,7 @@ defmodule Pinecone do
   """
   @spec whoami(opts :: keyword()) :: success_t(map()) | error_t()
   def whoami(opts \\ []) do
-    Keyword.validate!(opts, [:config])
+    opts = Keyword.validate!(opts, [:config])
     get("actions/whoami", opts[:config])
   end
 
@@ -35,7 +35,7 @@ defmodule Pinecone do
   """
   @spec list_indices(opts :: keyword()) :: success_t(list()) | error_t()
   def list_indices(opts \\ []) do
-    Keyword.validate!(opts, [:config])
+    opts = Keyword.validate!(opts, [:config])
     get("databases", opts[:config])
   end
 
@@ -50,7 +50,7 @@ defmodule Pinecone do
   @spec describe_index(index_name :: String.t(), opts :: keyword()) ::
           success_t(map()) | error_t()
   def describe_index(index_name, opts \\ []) do
-    Keyword.validate!(opts, [:config])
+    opts = Keyword.validate!(opts, [:config])
     get("databases/#{index_name}", opts[:config])
   end
 
