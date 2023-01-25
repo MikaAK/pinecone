@@ -22,23 +22,14 @@ defmodule Pinecone.Http do
 
     type
     |> url(endpoint, config[:environment])
-    |> then(
-      &Req.request(url: &1, params: params, method: :delete, headers: headers(config[:api_key]))
-    )
+    |> Req.delete(params: params, headers: headers(config[:api_key]))
     |> parse_response()
   end
 
   def patch(type, endpoint, body, config \\ []) do
     type
     |> url(endpoint, config[:environment])
-    |> then(
-      &Req.request(
-        url: &1,
-        body: Jason.encode!(body),
-        method: :patch,
-        headers: headers(config[:api_key])
-      )
-    )
+    |> Req.patch(body: Jason.encode!(body), headers: headers(config[:api_key]))
     |> parse_response()
   end
 
