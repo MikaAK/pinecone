@@ -41,6 +41,8 @@ defmodule Pinecone.Http do
     {:error, body}
   end
 
+  defp parse_response({:error, _reason} = error), do: error
+
   defp url(type, endpoint, env) when type in [:indices, :collections] do
     env =
       if env do
