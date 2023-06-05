@@ -323,6 +323,8 @@ defmodule Pinecone do
     * `:namespace` - index namespace to query. Defaults to `nil`
       which will query vectors in the default namespace
 
+    * `:filter` - metadata filter to apply to the query. See https://docs.pinecone.io/docs/metadata-filtering
+
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
@@ -335,18 +337,21 @@ defmodule Pinecone do
         :namespace,
         top_k: 5,
         include_values: false,
-        include_metadata: false
+        include_metadata: false,
+        filter: %{}
       ])
 
     validate!("top_k", opts[:top_k], :non_negative_integer)
     validate!("include_values", opts[:include_values], :boolean)
     validate!("include_metadata", opts[:include_metadata], :boolean)
+    validate!("filter", opts[:filter], :map)
 
     body = %{
       "vector" => vector,
       "topK" => opts[:top_k],
       "includeValues" => opts[:include_values],
-      "includeMetadata" => opts[:include_metadata]
+      "includeMetadata" => opts[:include_metadata],
+      "filter" => opts[:filter]
     }
 
     body = if opts[:namespace], do: Map.put(body, "namespace", opts[:namespace]), else: body
@@ -434,6 +439,7 @@ defmodule Pinecone do
   defp validate!(_key, value, :non_negative_integer) when is_integer(value) and value > 0, do: :ok
   defp validate!(_key, value, :boolean) when is_boolean(value), do: :ok
   defp validate!(_key, value, :binary) when is_binary(value), do: :ok
+  defp validate!(_key, value, :map) when is_map(value), do: :ok
 
   defp validate!(key, value, type) do
     raise ArgumentError, "expected #{key} to be type #{inspect(type)}, got #{inspect(value)}"
