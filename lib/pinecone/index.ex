@@ -4,4 +4,9 @@ defmodule Pinecone.Index do
   """
 
   defstruct [:name, :project_name]
+
+  @type t :: %__MODULE__{
+          name: String.t(),
+          project_name: String.t()
+        }
 end

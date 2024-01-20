@@ -10,22 +10,6 @@ defmodule Pinecone do
   @type error_type :: {:error, String.t()}
   @type index_type :: %Index{name: String.t(), project_name: String.t()}
 
-  ## General Operations
-
-  @doc """
-  Retrieves Pinecone project name.
-
-  ## Options
-
-    * `:config` - client configuration used to override application
-      level configuration. Defaults to `nil`
-  """
-  @spec whoami(opts :: keyword()) :: success_type(map()) | error_type()
-  def whoami(opts \\ []) do
-    opts = Keyword.validate!(opts, [:config])
-    get(:indices, "actions/whoami", opts[:config])
-  end
-
   ## Index Operations
 
   @doc """
@@ -36,9 +20,11 @@ defmodule Pinecone do
     * `:project_name` - project name to use to override application
       configuration. Defaults to `nil`
   """
+  @spec index(String.t(), Keyword.t()) :: Index.t()
   def index(index_name, opts \\ []) when is_binary(index_name) do
     opts = Keyword.validate!(opts, [:project_name])
     project_name = opts[:project_name] || Pinecone.Config.project_name()
+
     %Index{name: index_name, project_name: project_name}
   end
 
@@ -50,10 +36,14 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
       level configuration. Defaults to `nil`
   """
-  @spec list_indices(opts :: keyword()) :: success_type(list()) | error_type()
+  @spec list_indices() :: success_type(list(map)) | error_type()
+  @spec list_indices(opts :: keyword()) :: success_type(list(map)) | error_type()
   def list_indices(opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
-    get(:indices, "databases", opts[:config])
+
+    with {:ok, %{"indexes" => indexes}} <- get(:indices, "", opts[:config]) do
+      {:ok, indexes}
+    end
   end
 
   @doc """
@@ -64,13 +54,16 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
       level configuration. Defaults to `nil`
   """
+  @spec describe_index(index_name :: String.t()) ::
+          success_type(map()) | error_type()
   @spec describe_index(index_name :: String.t(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def describe_index(index_name, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
-    get(:indices, "databases/#{index_name}", opts[:config])
+    get(:indices, index_name, opts[:config])
   end
 
+  @valid_clouds ["gcp", "aws", "azure"]
   @valid_metric_types [:euclidean, :cosine, :dotproduct]
   @valid_pod_types [:s1, :p1, :p2]
   @valid_pod_sizes [:x1, :x2, :x4, :x8]
@@ -104,41 +97,82 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
       level configuration. Defaults to `nil`
   """
+  @spec create_index(index_name :: String.t()) ::
+          success_type(map) | error_type()
   @spec create_index(index_name :: String.t(), opts :: keyword()) ::
-          success_type(String.t()) | error_type()
+          success_type(map) | error_type()
   def create_index(index_name, opts \\ []) do
     opts =
       Keyword.validate!(opts, [
         :config,
         dimension: 384,
         metric: :euclidean,
-        pods: 1,
-        replicas: 1,
-        shards: 1,
-        pod_type: {:p1, :x1},
-        metadata: []
+        spec: []
       ])
 
+    # TODO: validate metadata
     validate!("index_name", index_name, :binary)
     validate!("dimension", opts[:dimension], :non_negative_integer)
-    validate!("pods", opts[:pods], :non_negative_integer)
-    validate!("replicas", opts[:replicas], :non_negative_integer)
-    validate!("shards", opts[:shards], :non_negative_integer)
     validate!("metric", opts[:metric], :one_of, @valid_metric_types)
-    validate!("pod_type", opts[:pod_type], :one_of, @valid_pods)
-    # TODO: validate metadata
+
+    spec_params = validate_create_index_opts(opts[:spec])
 
     body = %{
       "name" => index_name,
       "dimension" => opts[:dimension],
       "metric" => Atom.to_string(opts[:metric]),
-      "pods" => opts[:pods],
-      "replicas" => opts[:replicas],
-      "shards" => opts[:shards],
-      "pod_type" => to_pod_type(opts[:pod_type])
+      "spec" => spec_params
     }
 
-    post(:indices, "databases", body, opts[:config])
+    post(:indices, "", body, opts[:config])
+  end
+
+  defp validate_create_index_opts(spec_opts) do
+    case spec_opts do
+      [serverless: serverless_opts] ->
+        serverless_opts =
+          Keyword.validate!(serverless_opts,
+            cloud: "aws",
+            region: "us-west-2"
+          )
+
+        validate!("cloud", serverless_opts[:cloud], :one_of, @valid_clouds)
+        validate!("region", serverless_opts[:region], :binary)
+
+        %{
+          "serverless" => %{
+            "cloud" => serverless_opts[:cloud],
+            "region" => serverless_opts[:region]
+          }
+        }
+
+      [pod: pod_opts] ->
+        pod_opts =
+          Keyword.validate!(pod_opts,
+            pods: 1,
+            replicas: 1,
+            shards: 1,
+            pod_type: {:p1, :x1},
+            metadata: []
+          )
+
+        validate!("pods", pod_opts[:pods], :non_negative_integer)
+        validate!("replicas", pod_opts[:replicas], :non_negative_integer)
+        validate!("shards", pod_opts[:shards], :non_negative_integer)
+        validate!("pod_type", pod_opts[:pod_type], :one_of, @valid_pods)
+
+        %{
+          "pod" => %{
+            "pods" => pod_opts[:pods],
+            "replicas" => pod_opts[:replicas],
+            "shards" => pod_opts[:shards],
+            "pod_type" => to_pod_type(pod_opts[:pod_type])
+          }
+        }
+
+      _ ->
+        raise "Must provide `serverless` or `pod` under the `spec` key when creating indexes"
+    end
   end
 
   @doc """
@@ -149,12 +183,14 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
       level configuration. Defaults to `nil`
   """
+  @spec delete_index(index_name :: String.t()) ::
+          success_type(String.t()) | error_type()
   @spec delete_index(index_name :: String.t(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
   def delete_index(index_name, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    delete(:indices, "databases/#{index_name}", opts[:config])
+    delete(:indices, index_name, opts[:config])
   end
 
   @doc """
@@ -172,6 +208,8 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
       level configuration. Defaults to `nil`
   """
+  @spec configure_index(index_name :: String.t()) ::
+          success_type(String.t()) | error_type()
   @spec configure_index(index_name :: String.t(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
   def configure_index(index_name, opts \\ []) do
@@ -185,7 +223,7 @@ defmodule Pinecone do
       "pod_type" => to_pod_type(opts[:pod_type])
     }
 
-    patch(:indices, "databases/#{index_name}", body, opts[:config])
+    patch(:indices, index_name, body, opts[:config])
   end
 
   ## Vector operations
@@ -198,6 +236,8 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec describe_index_stats(index :: index_type()) ::
+          success_type(map()) | error_type()
   @spec describe_index_stats(index :: index_type(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def describe_index_stats(%Index{name: name, project_name: project_name}, opts \\ []) do
@@ -225,6 +265,8 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec upsert_vectors(index :: index_type(), vectors :: list()) ::
+          success_type(map()) | error_type()
   @spec upsert_vectors(index :: index_type(), vectors :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def upsert_vectors(%Index{name: name, project_name: project_name}, vectors, opts \\ []) do
@@ -251,6 +293,8 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec fetch_vectors(index :: index_type(), ids :: list()) ::
+          success_type(map()) | error_type()
   @spec fetch_vectors(index :: index_type(), ids :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def fetch_vectors(%Index{name: name, project_name: project_name}, ids, opts \\ []) do
@@ -272,6 +316,8 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec delete_vectors(index :: index_type(), ids :: list()) ::
+          success_type(String.t()) | error_type()
   @spec delete_vectors(index :: index_type(), ids :: list(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
   def delete_vectors(%Index{name: name, project_name: project_name}, ids, opts \\ [])
@@ -298,6 +344,8 @@ defmodule Pinecone do
 
     * `:filter` - metadata filter to apply to the deletion. See https://docs.pinecone.io/docs/metadata-filtering
   """
+  @spec delete_all_vectors(index :: index_type()) ::
+          success_type(String.t()) | error_type()
   @spec delete_all_vectors(index :: index_type(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
   def delete_all_vectors(%Index{name: name, project_name: project_name}, opts \\ []) do
@@ -335,6 +383,8 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec query(index :: index_type(), vector :: list()) ::
+          success_type(map()) | error_type()
   @spec query(index :: index_type(), vector :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def query(%Index{name: name, project_name: project_name}, vector, opts \\ []) do
@@ -382,6 +432,10 @@ defmodule Pinecone do
           index_name :: String.t(),
           opts :: keyword()
         ) :: success_type(String.t()) | error_type()
+  @spec create_collection(
+          collection_name :: String.t(),
+          index_name :: String.t()
+        ) :: success_type(String.t()) | error_type()
   def create_collection(collection_name, index_name, opts \\ [])
       when is_binary(collection_name) and is_binary(index_name) do
     opts = Keyword.validate!(opts, [:config])
@@ -391,7 +445,7 @@ defmodule Pinecone do
       "source" => index_name
     }
 
-    post(:collections, "collections", body, opts[:config])
+    post(:collections, "", body, opts[:config])
   end
 
   @doc """
@@ -402,12 +456,14 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec describe_collection(collection_name :: String.t()) ::
+          success_type(map()) | error_type()
   @spec describe_collection(collection_name :: String.t(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def describe_collection(collection_name, opts \\ []) when is_binary(collection_name) do
     opts = Keyword.validate!(opts, [:config])
 
-    get(:collections, "collections/#{collection_name}", opts[:config])
+    get(:collections, collection_name, opts[:config])
   end
 
   @doc """
@@ -418,11 +474,12 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec list_collections() :: success_type(list()) | error_type()
   @spec list_collections(opts :: keyword()) :: success_type(list()) | error_type()
   def list_collections(opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    get(:collections, "collections", opts[:config])
+    get(:collections, "", opts[:config])
   end
 
   @doc """
@@ -433,12 +490,14 @@ defmodule Pinecone do
     * `:config` - client configuration used to override application
     level configuration. Defaults to `nil`
   """
+  @spec delete_collection(collection_name :: String.t()) ::
+          success_type(String.t()) | error_type()
   @spec delete_collection(collection_name :: String.t(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
   def delete_collection(collection_name, opts \\ []) when is_binary(collection_name) do
     opts = Keyword.validate!(opts, [:config])
 
-    get(:collections, "collections/#{collection_name}", opts[:config])
+    get(:collections, collection_name, opts[:config])
   end
 
   defp to_pod_type({type, size}), do: "#{Atom.to_string(type)}.#{Atom.to_string(size)}"

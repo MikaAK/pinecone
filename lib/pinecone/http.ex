@@ -43,7 +43,7 @@ defmodule Pinecone.Http do
 
   defp parse_response({:error, _reason} = error), do: error
 
-  defp url(type, endpoint, env) when type in [:indices, :collections] do
+  defp url(:indices, "actions/whoami" = endpoint, env) do
     env =
       if env do
         env
@@ -54,15 +54,16 @@ defmodule Pinecone.Http do
     "https://controller.#{env}.pinecone.io/#{endpoint}"
   end
 
-  defp url({:vectors, slug}, endpoint, env) do
-    env =
-      if env do
-        env
-      else
-        Pinecone.Config.environment()
-      end
+  defp url(:indices, endpoint, _env) do
+    Path.join("https://api.pinecone.io/indexes", endpoint)
+  end
 
-    "https://#{slug}.svc.#{env}.pinecone.io/#{endpoint}"
+  defp url(:collections, endpoint, _env) do
+    Path.join("https://api.pinecone.io/collections", endpoint)
+  end
+
+  defp url({:vectors, slug}, endpoint, env) do
+    Path.join("https://#{slug}.svc.#{env}.pinecone.io", endpoint)
   end
 
   defp headers(api_key) do

@@ -24,7 +24,7 @@ defmodule Pinecone.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:jason, "~> 1.4"},
-      {:req, "~> 0.3.1"}
+      {:req, "~> 0.3"}
     ]
   end
 end
