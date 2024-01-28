@@ -1,6 +1,8 @@
 defmodule Pinecone.Http do
   @moduledoc false
 
+  require Logger
+
   def get(type, endpoint, config \\ [], opts \\ []) do
     params = opts[:params] || []
 
@@ -37,7 +39,9 @@ defmodule Pinecone.Http do
     {:ok, body}
   end
 
-  defp parse_response({:ok, %{body: body}}) do
+  defp parse_response({:ok, %{body: body} = e}) do
+    Logger.warning("Failed pinecone request: #{inspect(e)}")
+
     {:error, body}
   end
 
@@ -62,8 +66,8 @@ defmodule Pinecone.Http do
     Path.join("https://api.pinecone.io/collections", endpoint)
   end
 
-  defp url({:vectors, slug}, endpoint, env) do
-    Path.join("https://#{slug}.svc.#{env}.pinecone.io", endpoint)
+  defp url({:vectors, host}, endpoint, _env) do
+    Path.join("https://#{host}/vectors", endpoint)
   end
 
   defp headers(api_key) do

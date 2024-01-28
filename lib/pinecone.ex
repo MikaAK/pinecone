@@ -240,10 +240,10 @@ defmodule Pinecone do
           success_type(map()) | error_type()
   @spec describe_index_stats(index :: index_type(), opts :: keyword()) ::
           success_type(map()) | error_type()
-  def describe_index_stats(%Index{name: name, project_name: project_name}, opts \\ []) do
+  def describe_index_stats(%Index{name: name}, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    get({:vectors, "#{name}-#{project_name}"}, "describe_index_stats", opts[:config])
+    get_vector("describe_index_stats", name, opts[:config], params: opts[:params])
   end
 
   @doc """
@@ -269,7 +269,7 @@ defmodule Pinecone do
           success_type(map()) | error_type()
   @spec upsert_vectors(index :: index_type(), vectors :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
-  def upsert_vectors(%Index{name: name, project_name: project_name}, vectors, opts \\ []) do
+  def upsert_vectors(%Index{name: name}, vectors, opts \\ []) do
     opts = Keyword.validate!(opts, [:config, :namespace])
 
     body = %{"vectors" => List.wrap(vectors)}
@@ -282,7 +282,7 @@ defmodule Pinecone do
         body
       end
 
-    post({:vectors, "#{name}-#{project_name}"}, "vectors/upsert", body, opts[:config])
+    post_vector("upsert", name, body, opts[:config])
   end
 
   @doc """
@@ -297,12 +297,12 @@ defmodule Pinecone do
           success_type(map()) | error_type()
   @spec fetch_vectors(index :: index_type(), ids :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
-  def fetch_vectors(%Index{name: name, project_name: project_name}, ids, opts \\ []) do
+  def fetch_vectors(%Index{name: name}, ids, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
     ids = Enum.map(ids, &{"ids", &1})
 
-    get({:vectors, "#{name}-#{project_name}"}, "vectors/fetch", opts[:config], params: ids)
+    get_vector("fetch", name, opts[:config], params: ids)
   end
 
   @doc """
@@ -320,14 +320,14 @@ defmodule Pinecone do
           success_type(String.t()) | error_type()
   @spec delete_vectors(index :: index_type(), ids :: list(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
-  def delete_vectors(%Index{name: name, project_name: project_name}, ids, opts \\ [])
+  def delete_vectors(%Index{name: name}, ids, opts \\ [])
       when is_list(ids) do
     opts = Keyword.validate!(opts, [:config, :namespace])
 
     params = Enum.map(ids, &{"ids", &1})
     params = if opts[:namespace], do: [{"namespace", opts[:namespace]} | params], else: params
 
-    delete({:vectors, "#{name}-#{project_name}"}, "vectors/delete", opts[:config], params: params)
+    delete_vector("delete", name, opts[:config], params: params)
   end
 
   @doc """
@@ -348,7 +348,7 @@ defmodule Pinecone do
           success_type(String.t()) | error_type()
   @spec delete_all_vectors(index :: index_type(), opts :: keyword()) ::
           success_type(String.t()) | error_type()
-  def delete_all_vectors(%Index{name: name, project_name: project_name}, opts \\ []) do
+  def delete_all_vectors(%Index{name: name}, opts \\ []) do
     opts = Keyword.validate!(opts, [:config, :namespace, :filter])
 
     body =
@@ -358,7 +358,31 @@ defmodule Pinecone do
 
     body = if opts[:namespace], do: Map.put(body, "namespace", opts[:namespace]), else: body
 
-    post({:vectors, "#{name}-#{project_name}"}, "vectors/delete", body, opts[:config])
+    post_vector("delete", name, body, opts[:config])
+  end
+
+  defp delete_vector(path, name, config, opts) do
+    with {:ok, host} <- index_host(name) do
+      delete({:vectors, host}, path, config, opts)
+    end
+  end
+
+  defp get_vector(path, name, config, opts) do
+    with {:ok, host} <- index_host(name) do
+      get({:vectors, host}, path, config, opts)
+    end
+  end
+
+  defp post_vector(path, name, body, opts) do
+    with {:ok, host} <- index_host(name) do
+      post({:vectors, host}, path, body, opts)
+    end
+  end
+
+  defp index_host(index_name) do
+    with {:ok, %{"host" => host}} <- describe_index(index_name) do
+      {:ok, host}
+    end
   end
 
   @doc """
@@ -387,7 +411,7 @@ defmodule Pinecone do
           success_type(map()) | error_type()
   @spec query(index :: index_type(), vector :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
-  def query(%Index{name: name, project_name: project_name}, vector, opts \\ []) do
+  def query(%Index{name: name}, vector, opts \\ []) do
     opts =
       Keyword.validate!(opts, [
         :config,
@@ -413,7 +437,7 @@ defmodule Pinecone do
 
     body = if opts[:namespace], do: Map.put(body, "namespace", opts[:namespace]), else: body
 
-    post({:vectors, "#{name}-#{project_name}"}, "query", body, opts[:config])
+    post_vector("query", name, body, opts[:config])
   end
 
   ## Collection Operations
