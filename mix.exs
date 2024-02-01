@@ -38,12 +38,14 @@ defmodule Pinecone.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:jason, "~> 1.4"},
+      {:req, "~> 0.3"},
+
+      {:excoveralls, "~> 0.10", only: :test},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:test, :dev], runtime: false},
-      {:ex_doc, ">= 0.0.0", optional: true, only: :dev},
-      {:jason, "~> 1.4"},
-      {:req, "~> 0.3"}
+      {:ex_doc, ">= 0.0.0", optional: true, only: :dev}
     ]
   end
 
