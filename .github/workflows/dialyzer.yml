@@ -2,6 +2,10 @@ name: Dialyzer
 
 on: push
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Dialyzer:
     runs-on: ubuntu-latest
