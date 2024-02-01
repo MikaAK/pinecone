@@ -11,15 +11,12 @@ defmodule Pinecone.MixProject do
       deps: deps(),
       docs: docs(),
       package: package(),
-
       preferred_cli_env: [
         dialyzer: :test
       ],
-
       elixirc_options: [
         warnings_as_errors: true
       ],
-
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix, :credo],
         list_unused_filters: true,
@@ -45,7 +42,6 @@ defmodule Pinecone.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:test, :dev], runtime: false},
       {:ex_doc, ">= 0.0.0", optional: true, only: :dev},
-
       {:jason, "~> 1.4"},
       {:req, "~> 0.3"}
     ]
