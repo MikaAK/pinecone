@@ -1,4 +1,4 @@
-defmodule Pinecone.Http do
+defmodule Pinecone.HTTP do
   @moduledoc false
 
   require Logger

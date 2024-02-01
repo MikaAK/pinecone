@@ -2,9 +2,7 @@ defmodule Pinecone do
   @moduledoc """
   Elixir client for the [Pinecone](https://pinecone.io) REST API.
   """
-  import Pinecone.Http
-
-  alias Pinecone.Index
+  alias Pinecone.{Index, HTTP}
 
   @type success_type(inner) :: {:ok, inner}
   @type error_type :: {:error, String.t()}
@@ -41,7 +39,7 @@ defmodule Pinecone do
   def list_indices(opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    with {:ok, %{"indexes" => indexes}} <- get(:indices, "", opts[:config]) do
+    with {:ok, %{"indexes" => indexes}} <- HTTP.get(:indices, "", opts[:config]) do
       {:ok, indexes}
     end
   end
@@ -60,7 +58,7 @@ defmodule Pinecone do
           success_type(map()) | error_type()
   def describe_index(index_name, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
-    get(:indices, index_name, opts[:config])
+    HTTP.get(:indices, index_name, opts[:config])
   end
 
   @valid_clouds ["gcp", "aws", "azure"]
@@ -110,7 +108,6 @@ defmodule Pinecone do
         spec: []
       ])
 
-    # TODO: validate metadata
     validate!("index_name", index_name, :binary)
     validate!("dimension", opts[:dimension], :non_negative_integer)
     validate!("metric", opts[:metric], :one_of, @valid_metric_types)
@@ -124,7 +121,7 @@ defmodule Pinecone do
       "spec" => spec_params
     }
 
-    post(:indices, "", body, opts[:config])
+    HTTP.post(:indices, "", body, opts[:config])
   end
 
   defp validate_create_index_opts(spec_opts) do
@@ -190,7 +187,7 @@ defmodule Pinecone do
   def delete_index(index_name, opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    delete(:indices, index_name, opts[:config])
+    HTTP.delete(:indices, index_name, opts[:config])
   end
 
   @doc """
@@ -223,7 +220,7 @@ defmodule Pinecone do
       "pod_type" => to_pod_type(opts[:pod_type])
     }
 
-    patch(:indices, index_name, body, opts[:config])
+    HTTP.patch(:indices, index_name, body, opts[:config])
   end
 
   ## Vector operations
@@ -363,19 +360,19 @@ defmodule Pinecone do
 
   defp delete_vector(path, name, config, opts) do
     with {:ok, host} <- index_host(name) do
-      delete({:vectors, host}, path, config, opts)
+      HTTP.delete({:vectors, host}, path, config, opts)
     end
   end
 
   defp get_vector(path, name, config, opts) do
     with {:ok, host} <- index_host(name) do
-      get({:vectors, host}, path, config, opts)
+      HTTP.get({:vectors, host}, path, config, opts)
     end
   end
 
   defp post_vector(path, name, body, opts) do
     with {:ok, host} <- index_host(name) do
-      post({:vectors, host}, path, body, opts)
+      HTTP.post({:vectors, host}, path, body, opts)
     end
   end
 
@@ -469,7 +466,7 @@ defmodule Pinecone do
       "source" => index_name
     }
 
-    post(:collections, "", body, opts[:config])
+    HTTP.post(:collections, "", body, opts[:config])
   end
 
   @doc """
@@ -487,7 +484,7 @@ defmodule Pinecone do
   def describe_collection(collection_name, opts \\ []) when is_binary(collection_name) do
     opts = Keyword.validate!(opts, [:config])
 
-    get(:collections, collection_name, opts[:config])
+    HTTP.get(:collections, collection_name, opts[:config])
   end
 
   @doc """
@@ -503,7 +500,7 @@ defmodule Pinecone do
   def list_collections(opts \\ []) do
     opts = Keyword.validate!(opts, [:config])
 
-    get(:collections, "", opts[:config])
+    HTTP.get(:collections, "", opts[:config])
   end
 
   @doc """
@@ -521,7 +518,7 @@ defmodule Pinecone do
   def delete_collection(collection_name, opts \\ []) when is_binary(collection_name) do
     opts = Keyword.validate!(opts, [:config])
 
-    get(:collections, collection_name, opts[:config])
+    HTTP.get(:collections, collection_name, opts[:config])
   end
 
   defp to_pod_type({type, size}), do: "#{Atom.to_string(type)}.#{Atom.to_string(size)}"

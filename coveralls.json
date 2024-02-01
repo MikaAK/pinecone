@@ -1,0 +1,22 @@
+{
+  "skip_files": [
+    "test/support/*"
+  ],
+
+  "terminal_options": {
+    "file_column_width": 75
+  },
+
+  "coverage_options": {
+    "html_filter_full_covered": true,
+    "treat_no_relevant_lines_as_covered": true,
+    "minimum_coverage": 70
+  },
+
+  "custom_stop_words": [
+    "defdelegate"
+  ]
+}
+
+
+
