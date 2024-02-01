@@ -36,7 +36,7 @@ jobs:
         run: mix deps.get
 
       - name: Compile Project
-        run: mix compile
+        run: mix compile --warnings-as-errors
 
       - name: Run Dialyzer
         run: mkdir -p dialyzer && mix dialyzer

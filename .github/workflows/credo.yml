@@ -35,7 +35,7 @@ jobs:
         run: mix deps.get
 
       - name: Compile Project
-        run: mix compile
+        run: mix compile --warnings-as-errors
 
       - name: Run Credo
         run: mix credo
