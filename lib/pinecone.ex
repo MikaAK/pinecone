@@ -376,6 +376,12 @@ defmodule Pinecone do
     end
   end
 
+  defp post_root(path, name, body, opts) do
+    with {:ok, host} <- index_host(name) do
+      HTTP.post({:root, host}, path, body, opts)
+    end
+  end
+
   defp index_host(index_name) do
     with {:ok, %{"host" => host}} <- describe_index(index_name) do
       {:ok, host}
@@ -434,7 +440,7 @@ defmodule Pinecone do
 
     body = if opts[:namespace], do: Map.put(body, "namespace", opts[:namespace]), else: body
 
-    post_vector("query", name, body, opts[:config])
+    post_root("query", name, body, opts[:config])
   end
 
   ## Collection Operations

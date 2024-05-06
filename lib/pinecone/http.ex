@@ -70,6 +70,10 @@ defmodule Pinecone.HTTP do
     Path.join("https://#{host}/vectors", endpoint)
   end
 
+  defp url({:root, host}, endpoint, _env) do
+    Path.join("https://#{host}", endpoint)
+  end
+
   defp headers(api_key) do
     api_key =
       if api_key do
