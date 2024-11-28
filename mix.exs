@@ -4,7 +4,7 @@ defmodule Pinecone.MixProject do
   def project do
     [
       app: :pinecone,
-      version: "0.1.1",
+      version: "0.1.2",
       elixir: "~> 1.12",
       description: "Pinecone.io API integration",
       start_permanent: Mix.env() == :prod,
@@ -58,8 +58,8 @@ defmodule Pinecone.MixProject do
     [
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/theblitzapp/prometheus_telemetry_elixir"},
-      files: ~w(mix.exs README.md CHANGELOG.md LICENSE lib config priv)
+      links: %{"GitHub" => "https://github.com/mikaak/pinecone"},
+      files: ~w(mix.exs README.md CHANGELOG.md LICENSE lib config)
     ]
   end
 
