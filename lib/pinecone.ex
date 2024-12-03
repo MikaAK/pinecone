@@ -295,11 +295,13 @@ defmodule Pinecone do
   @spec fetch_vectors(index :: index_type(), ids :: list(), opts :: keyword()) ::
           success_type(map()) | error_type()
   def fetch_vectors(%Index{name: name}, ids, opts \\ []) do
-    opts = Keyword.validate!(opts, [:config])
+    opts = Keyword.validate!(opts, [:config, :namespace])
 
     ids = Enum.map(ids, &{"ids", &1})
 
-    get_vector("fetch", name, opts[:config], params: ids)
+    params = if opts[:namespace], do: [{"namespace", opts[:namespace]} | ids], else: ids
+
+    get_vector("fetch", name, opts[:config], params: params)
   end
 
   @doc """
